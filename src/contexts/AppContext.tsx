@@ -59,6 +59,10 @@ interface AppContextType {
   setTheme: (val: 'light' | 'dark') => void;
   accentColor: string;
   setAccentColor: (val: string) => void;
+  isAgentRunning: boolean;
+  setIsAgentRunning: (val: boolean) => void;
+  agentLogs: any[];
+  setAgentLogs: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const defaultSettings: Settings = {
@@ -82,20 +86,6 @@ const defaultSettings: Settings = {
   }
 };
 
-const defaultCampaigns: Campaign[] = [
-  { id: '1', name: 'TechLap Campaign', status: 'Complete', date: 'Oct 2025', config: {} },
-  { id: '2', name: 'Cosmetics Hyd', status: 'Active', date: 'Nov 2025', config: {} },
-  { id: '3', name: 'WebDev Pune', status: 'Paused', date: 'Nov 2025', config: {} }
-];
-
-const defaultLeads: Lead[] = [
-  { id: '1', name: "Sarah Jenkins", company: "TechFlow Inc", city: "San Francisco", phone: "+1 234 567 890", email: "sarah@techflow.io", score: 92, status: "Hot", lastActivity: "2 hours ago" },
-  { id: '2', name: "Marcus Chen", company: "DataSphere", city: "New York", phone: "+1 987 654 321", email: "m.chen@datasphere.com", score: 85, status: "Warm", lastActivity: "5 hours ago" },
-  { id: '3', name: "Elena Rodriguez", company: "CloudScale", city: "Austin", phone: "+1 555 123 456", email: "elena@cloudscale.net", score: 45, status: "Cold", lastActivity: "1 day ago" },
-  { id: '4', name: "David Kim", company: "Nexus Systems", city: "Seattle", phone: "+1 444 555 666", email: "dkim@nexus.dev", score: 78, status: "Negotiating", lastActivity: "10 mins ago" },
-  { id: '5', name: "Rachel Green", company: "StyleHub", city: "Los Angeles", phone: "+1 777 888 999", email: "rachel@stylehub.co", score: 95, status: "Deal Done", lastActivity: "Just now" },
-];
-
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -110,7 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
     const saved = localStorage.getItem('dealos_campaigns');
-    return saved ? JSON.parse(saved) : defaultCampaigns;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(() => {
@@ -119,7 +109,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     const saved = localStorage.getItem('dealos_leads');
-    return saved ? JSON.parse(saved) : defaultLeads;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [settings, setSettings] = useState<Settings>(() => {
@@ -136,6 +126,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [accentColor, setAccentColor] = useState<string>(() => {
     return localStorage.getItem('dealos_accent_color') || '#4F46E5'; // Default Indigo 600
   });
+
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [agentLogs, setAgentLogs] = useState<any[]>([]);
 
   useEffect(() => {
     localStorage.setItem('dealos_config_complete', String(isConfigComplete));
@@ -188,7 +181,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       leads, setLeads,
       settings, setSettings,
       theme, setTheme,
-      accentColor, setAccentColor
+      accentColor, setAccentColor,
+      isAgentRunning, setIsAgentRunning,
+      agentLogs, setAgentLogs
     }}>
       {children}
     </AppContext.Provider>

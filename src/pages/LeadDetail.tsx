@@ -14,9 +14,9 @@ export default function LeadDetail() {
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Sarah Jenkins</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Lead Detail</h1>
             <p className="text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
-              <Building2 className="w-4 h-4" /> VP of Sales at TechFlow Inc
+              <Building2 className="w-4 h-4" /> Company Info
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -43,7 +43,7 @@ export default function LeadDetail() {
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-sm">
                 <Mail className="w-4 h-4 text-zinc-400" />
-                <span>sarah@techflow.io</span>
+                <span>N/A</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Phone className="w-4 h-4 text-zinc-400" />
@@ -51,7 +51,7 @@ export default function LeadDetail() {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Globe className="w-4 h-4 text-zinc-400" />
-                <a href="#" className="text-indigo-500 hover:underline">techflow.io</a>
+                <a href="#" className="text-indigo-500 hover:underline">Website</a>
               </div>
             </div>
           </div>
@@ -86,11 +86,11 @@ export default function LeadDetail() {
             </div>
             <div className="p-6 flex-1">
               <div className="space-y-4 text-sm text-zinc-700 dark:text-zinc-300">
-                <p><strong>Subject:</strong> Scaling outbound at TechFlow without the SDR headcount</p>
+                <p><strong>Subject:</strong> Proposal Draft</p>
                 <div className="w-full h-px bg-zinc-200 dark:bg-white/10 my-4" />
-                <p>Hi Sarah,</p>
-                <p>Saw the recent Series B news—congrats! Noticed you're actively hiring for 5 SDR roles to scale up outbound.</p>
-                <p>I run DealOS, an autonomous multi-agent system that can handle the prospecting, research, and personalized outreach of those 5 SDRs for a fraction of the cost.</p>
+                <p>Hi there,</p>
+                <p>Noticed your recent rapid expansion and wanted to connect.</p>
+                <p>I run DealOS, an autonomous multi-agent system that can handle the prospecting, research, and personalized outreach for your team.</p>
                 <p>Would you be open to a quick 10-min demo next Tuesday to see how it works?</p>
                 <p>Best,<br/>Alex</p>
               </div>

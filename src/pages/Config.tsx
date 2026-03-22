@@ -13,16 +13,21 @@ const steps = [
 ];
 
 export default function Config() {
-  const { setCampaignName, setCampaignStatus } = useOutletContext<{ 
-    setCampaignName: (name: string) => void, 
-    setCampaignStatus: (status: string) => void 
-  }>();
+  const { 
+    isConfigComplete, setIsConfigComplete, 
+    config, setConfig: setGlobalConfig,
+    campaigns, setCampaigns,
+    setCurrentCampaignId
+  } = useAppContext();
+  
   const location = useLocation();
   const navigate = useNavigate();
 
   const [isSaved, setIsSaved] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [activeStep, setActiveStep] = useState('step-1');
+  const [locked, setLocked] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
 
   // Form Fields
   const [businessName, setBusinessName] = useState('');
@@ -41,7 +46,9 @@ export default function Config() {
     csv: false
   });
   const [csvFile, setCsvFile] = useState<File | null>(null);
-
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvImportDone, setCsvImportDone] = useState(false);
+  const [csvImportCount, setCsvImportCount] = useState(0);
   const [outreachChannel, setOutreachChannel] = useState('both');
   const [senderEmail, setSenderEmail] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
@@ -54,6 +61,11 @@ export default function Config() {
 
   useEffect(() => {
     if (location.state?.reset) {
+      // Clear AppContext config so the else-if below doesn't reload old data
+      setGlobalConfig({});
+      setIsConfigComplete(false);
+
+      // Clear all form fields
       setBusinessName('');
       setIndustry('');
       setCustomIndustry('');
@@ -62,12 +74,7 @@ export default function Config() {
       setUsp('');
       setTargetCity('');
       setTargetCustomer('');
-      setLeadSources({
-        googleMaps: true,
-        googleSearch: true,
-        manual: false,
-        csv: false
-      });
+      setLeadSources({ googleMaps: true, googleSearch: true, manual: false, csv: false });
       setCsvFile(null);
       setOutreachChannel('both');
       setSenderEmail('');
@@ -77,14 +84,32 @@ export default function Config() {
       setContactPhone('');
       setContactEmail('');
       setIntroMessage('');
-      
-      setCampaignName('Draft Campaign');
-      setCampaignStatus('Draft');
+      setLocked(false);
+      setShowWarning(false);
+      setIsSaved(false);
       setResetKey(prev => prev + 1);
-      
+
+      // Clear location state
       navigate(location.pathname, { replace: true, state: {} });
+
+    } else if (config && Object.keys(config).length > 0) {
+      setBusinessName(config.business_name || '');
+      setIndustry(config.industry || '');
+      setDescription(config.product || '');
+      setStartingPrice(config.price || '');
+      setUsp(config.usp || '');
+      setTargetCity(config.target_city || '');
+      setTargetCustomer(config.target_customer || '');
+      setOutreachChannel(config.outreach_channel || 'both');
+      setSenderEmail(config.gmail_user || '');
+      setSenderPhone(config.whatsapp_number || '');
+      setContactName(config.owner_name || '');
+      setContactPhone(config.owner_phone || '');
+      setContactEmail(config.owner_email || '');
+      setIntroMessage(config.intro_message || '');
+      setLocked(config.locked || false);
     }
-  }, [location.state, navigate, location.pathname, setCampaignName, setCampaignStatus]);
+  }, [location.state, navigate, location.pathname, config]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -106,26 +131,164 @@ export default function Config() {
     return () => observer.disconnect();
   }, [resetKey]);
 
-  const { setIsConfigComplete } = useAppContext();
-
   const isFormValid = 
     businessName.trim() !== '' &&
     industry.trim() !== '' &&
     (industry !== 'Other' || customIndustry.trim() !== '') &&
     description.trim() !== '';
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
-    
+    if (!isFormValid || locked) return;
+  
+    const id = config?.id || crypto.randomUUID();
+    const finalIndustry = industry === 'Other' ? customIndustry : industry;
+  
+    const newConfig = {
+      id,
+      business_name: businessName,
+      industry: finalIndustry,
+      product: description,
+      price: startingPrice,
+      usp,
+      target_city: targetCity,
+      target_customer: targetCustomer,
+      outreach_channel: outreachChannel,
+      gmail_user: senderEmail,
+      whatsapp_number: senderPhone,
+      owner_name: contactName,
+      owner_phone: contactPhone,
+      owner_email: contactEmail,
+      intro_message: introMessage,
+      created_at: config?.created_at || new Date().toISOString(),
+      locked: true
+    };
+  
+    setGlobalConfig(newConfig);
+  
+    // Save campaign to localStorage
+    const prevCamps = JSON.parse(localStorage.getItem("dealos_campaigns") || "[]");
+    const existingIndex = prevCamps.findIndex((c: any) => c.campaign_id === id);
+    const newCampaign = {
+      id, name: `${businessName} · ${finalIndustry}`,
+      industry: finalIndustry, city: targetCity, status: "active",
+      created_at: newConfig.created_at,
+      lead_count: existingIndex >= 0 ? prevCamps[existingIndex].lead_count : 0,
+      campaign_id: id
+    };
+    if (existingIndex >= 0) prevCamps[existingIndex] = newCampaign;
+    else prevCamps.unshift(newCampaign);
+    setCampaigns(prevCamps);
+    setCurrentCampaignId(id);
+    localStorage.setItem("dealos_campaign_id", id);
+    localStorage.setItem("campaign_id", id);
+    localStorage.setItem("dealos_config", JSON.stringify(newConfig));
+  
+    // ── CSV UPLOAD ──────────────────────────────────────────
+    if (csvFile && leadSources.csv) {
+      try {
+        const formData = new FormData();
+        formData.append("file", csvFile);
+        formData.append("campaign_id", id);
+  
+        const res  = await fetch("http://127.0.0.1:8000/api/import-csv", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+  
+        if (data.leads && data.leads.length > 0) {
+          // Add imported leads to dealos_my_leads (skip hunt pool)
+          const existing = JSON.parse(localStorage.getItem("dealos_my_leads") || "[]");
+          const newLeads = data.leads.filter(
+            (l: any) => !existing.some((e: any) => e.id === l.id)
+          );
+          localStorage.setItem("dealos_my_leads", JSON.stringify([...existing, ...newLeads]));
+        }
+      } catch (err) {
+        console.error("CSV import failed:", err);
+      }
+    }
+    // ────────────────────────────────────────────────────────
+  
     setIsSaved(true);
     setIsConfigComplete(true);
-    setCampaignName(businessName || 'DealOS');
-    setCampaignStatus('Active');
+    setLocked(true);
+  
     setTimeout(() => {
       setIsSaved(false);
-      navigate('/dashboard');
+      navigate('/leads'); // Go to leads page to see imported leads
     }, 1500);
+  };
+  
+  const handleCsvImport = async () => {
+    if (!csvFile) return;
+    setCsvImporting(true);
+    setCsvImportDone(false);
+    try {
+      const campaign_id = localStorage.getItem("dealos_campaign_id") 
+                       || localStorage.getItem("campaign_id") 
+                       || crypto.randomUUID();
+  
+      const formData = new FormData();
+      formData.append("file", csvFile);
+      formData.append("campaign_id", campaign_id);
+  
+      const res  = await fetch("http://127.0.0.1:8000/api/import-csv", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+  
+      const leads = data.leads || data.imported_leads || [];
+      if (leads.length > 0) {
+        const existing = JSON.parse(localStorage.getItem("dealos_my_leads") || "[]");
+        const deduped  = leads.filter((l: any) => !existing.some((e: any) => e.id === l.id));
+        localStorage.setItem("dealos_my_leads", JSON.stringify([...existing, ...deduped]));
+        setCsvImportCount(deduped.length);
+      }
+      setCsvImportDone(true);
+      setTimeout(() => navigate('/leads'), 1500);
+    } catch (e) {
+      console.error("CSV import failed:", e);
+    } finally {
+      setCsvImporting(false);
+    }
+  };
+
+  const handleEditClick = () => setShowWarning(true);
+  
+  const confirmEdit = () => {
+    setShowWarning(false);
+    setLocked(false);
+    
+    if (config?.id) {
+       const confirmReset = window.confirm("Are you sure? This will reset and lose all leads tied specifically to this UUID setup.");
+       if (!confirmReset) {
+          setLocked(true);
+          return;
+       }
+       fetch(`http://localhost:8000/api/leads/wipe/${config.id}`, { method: 'DELETE' }).catch(x => console.warn(x));
+    }
+  };
+  
+  const startNewCampaign = () => {
+    const currentId = config?.id || localStorage.getItem("dealos_campaign_id");
+    if (currentId) {
+      const pool = JSON.parse(localStorage.getItem("dealos_hunt_pool") || "[]");
+      const my   = JSON.parse(localStorage.getItem("dealos_my_leads")  || "[]");
+      localStorage.setItem(`dealos_hunt_pool_${currentId}`, JSON.stringify(pool));
+      localStorage.setItem(`dealos_my_leads_${currentId}`,  JSON.stringify(my));
+    }
+    const newId = crypto.randomUUID();
+    localStorage.setItem("dealos_campaign_id", newId);
+    localStorage.setItem("campaign_id",        newId);
+    localStorage.setItem("dealos_hunt_pool",   JSON.stringify([]));
+    localStorage.setItem("dealos_my_leads",    JSON.stringify([]));
+
+    // Force full page reset by navigating away first then back
+    navigate('/dashboard', { replace: true });
+    setTimeout(() => navigate('/config', { state: { reset: true } }), 50);
   };
 
   const toggleLeadSource = (source: keyof typeof leadSources) => {
@@ -184,6 +347,7 @@ export default function Config() {
         onSubmit={handleSave}
         className="space-y-8"
       >
+        <fieldset disabled={locked} className="space-y-8">
         {/* Section 1: Basic Information */}
         <div id="step-1" className={cardClass}>
           <div className="border-b border-gray-200 dark:border-gray-800 pb-4 mb-6">
@@ -349,7 +513,7 @@ export default function Config() {
           )}
 
           {leadSources.csv && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3">
               <label className={labelClass} style={{ color: 'inherit', opacity: 1 }}>Upload CSV file</label>
               <div className="flex items-center justify-center w-full">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-700 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
@@ -358,26 +522,44 @@ export default function Config() {
                       <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
                     </svg>
                     {csvFile ? (
-                      <p className="mb-2 text-sm text-purple-600 dark:text-purple-400 font-medium">{csvFile.name}</p>
+                      <p className="mb-2 text-sm text-purple-600 dark:text-purple-400 font-medium">📄 {csvFile.name}</p>
                     ) : (
                       <>
                         <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">CSV files only</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">CSV files only · columns: business_name, email, phone, city</p>
                       </>
                     )}
                   </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept=".csv" 
+                  <input type="file" className="hidden" accept=".csv"
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         setCsvFile(e.target.files[0]);
+                        setCsvImportDone(false);
                       }
                     }}
                   />
                 </label>
               </div>
+
+              {/* Import button — shown once file is selected */}
+              {csvFile && (
+                <button
+                  type="button"
+                  onClick={handleCsvImport}
+                  disabled={csvImporting || csvImportDone}
+                  className="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                             bg-gradient-to-r from-purple-600 to-indigo-600 text-white
+                             hover:opacity-90 disabled:opacity-60 shadow-lg shadow-purple-500/20"
+                >
+                  {csvImporting ? (
+                    <><span className="animate-spin">⟳</span> Importing leads...</>
+                  ) : csvImportDone ? (
+                    <>✅ {csvImportCount} leads imported! Redirecting to Leads...</>
+                  ) : (
+                    <>📥 Import {csvFile.name} → Leads Dashboard</>
+                  )}
+                </button>
+              )}
             </motion.div>
           )}
         </div>
@@ -498,27 +680,51 @@ export default function Config() {
           </div>
         </div>
 
+        </fieldset>
+
         <div className="fixed bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex items-center justify-end gap-4 z-30">
           {isSaved && (
             <motion.span 
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-emerald-500 text-sm flex items-center gap-1 font-medium"
+              className="text-emerald-500 text-sm flex items-center gap-1 font-medium mr-auto pl-4"
             >
               <CheckCircle2 className="w-4 h-4" /> ✓ DealOS configured! Your agents are ready.
             </motion.span>
           )}
-          <button 
-            type="submit" 
-            disabled={!isFormValid}
-            className={`px-8 py-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
-              isFormValid 
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] hover:scale-[1.02]' 
-                : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 opacity-50 cursor-not-allowed'
-            }`}
-          >
-            Launch DealOS Agents <Rocket className="w-4 h-4" />
-          </button>
+          {locked && !isSaved ? (
+             <>
+               <span className="text-emerald-600 dark:text-emerald-400 text-sm font-medium mr-auto pl-4 flex items-center gap-2">
+                 <CheckCircle2 className="w-4 h-4" /> ✓ Campaign Active — Agents working on this config
+               </span>
+               {showWarning && (
+                  <span className="text-amber-500 text-sm font-medium mr-2">⚠️ Editing will reset current leads. Continue?</span>
+               )}
+               {showWarning ? (
+                  <>
+                     <button type="button" onClick={() => setShowWarning(false)} className="px-4 py-2 text-zinc-500 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 rounded-lg text-sm font-medium hover:opacity-80 transition-opacity">Cancel</button>
+                     <button type="button" onClick={confirmEdit} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors">Yes, Unlock</button>
+                  </>
+               ) : (
+                  <>
+                    <button type="button" onClick={handleEditClick} className="px-4 py-2 text-zinc-600 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors">Edit Config</button>
+                    <button type="button" onClick={startNewCampaign} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:opacity-90 shadow-lg shadow-purple-500/30 transition-all">New Campaign</button>
+                  </>
+               )}
+             </>
+          ) : (
+             <button 
+               type="submit" 
+               disabled={!isFormValid || locked}
+               className={`px-8 py-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
+                 (isFormValid && !locked) 
+                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] hover:scale-[1.02]' 
+                   : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 opacity-50 cursor-not-allowed'
+               }`}
+             >
+               Launch DealOS Agents <Rocket className="w-4 h-4" />
+             </button>
+          )}
         </div>
       </motion.form>
     </div>

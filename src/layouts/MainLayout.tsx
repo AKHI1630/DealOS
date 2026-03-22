@@ -26,7 +26,7 @@ export default function MainLayout() {
       <main className="flex-1 overflow-y-auto relative">
         <Outlet context={{ isDemoMode, campaignName, setCampaignName, campaignStatus, setCampaignStatus }} />
       </main>
-      <AgentActivityPanel isDemoMode={isDemoMode} campaignName={campaignName} />
+      <AgentActivityPanel />
     </div>
   );
 }
