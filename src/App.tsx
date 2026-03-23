@@ -4,6 +4,7 @@
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Config from './pages/Config';
@@ -14,6 +15,15 @@ import MainLayout from './layouts/MainLayout';
 import PublicLayout from './layouts/PublicLayout';
 
 export default function App() {
+
+  // Global Heartbeat: auto-check for email replies every 10 seconds
+  useEffect(() => {
+    const emailHeartbeat = setInterval(() => {
+      fetch("http://127.0.0.1:8000/api/check-email-replies").catch(() => {});
+    }, 10000);
+    return () => clearInterval(emailHeartbeat);
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

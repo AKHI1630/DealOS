@@ -133,6 +133,7 @@ export default function Leads() {
       sent:      "bg-[#00FFD1]/20 text-[#00FFD1]",
       replied:   "bg-[#FFB347]/20 text-[#FFB347]",
       closed:    "bg-green-500/20 text-green-300",
+      overtime:  "bg-red-500/10 text-red-400 border border-red-500/20",
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${map[status] || map.new}`}>
@@ -147,7 +148,7 @@ export default function Leads() {
       <div className="grid grid-cols-4 gap-4">
         {[
           { label: "In Campaign",  value: myLeads.length,                                                           color: "text-white"     },
-          { label: "Contacted",    value: myLeads.filter(l => ["sent","replied","closed"].includes(l.status)).length, color: "text-[#00FFD1]" },
+          { label: "Contacted",    value: myLeads.filter(l => ["sent","replied","closed","overtime"].includes(l.status)).length, color: "text-[#00FFD1]" },
           { label: "With Email",   value: myLeads.filter(l => l.email).length,                                      color: "text-[#FFB347]" },
           { label: "With Phone",   value: myLeads.filter(l => l.phone).length,                                      color: "text-[#7C5CFC]" },
         ].map(s => (
@@ -168,7 +169,7 @@ export default function Leads() {
                      placeholder-white/30 text-sm focus:outline-none focus:border-[#7C5CFC] w-72 transition-colors" />
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-x-auto">
         {filtered.length === 0 ? (
           <div className="text-center py-24 text-white/30">
             <p className="text-4xl mb-3">📝</p>
@@ -176,11 +177,13 @@ export default function Leads() {
             <p className="text-sm mt-2">Go to Dashboard → Find New Leads → Add to Campaign</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full text-left min-w-[900px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                {["Business Name", "Phone", "Email", "City", "Status", "Action", ""].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-white/40 text-xs font-semibold uppercase tracking-wider">{h}</th>
+                {["Business Name", "Phone", "Email", "City", "Status", "Action", "Manage"].map((h, i) => (
+                  <th key={i} className={`px-4 py-3 text-white/40 text-xs font-semibold uppercase tracking-wider ${h === 'Manage' ? 'text-center' : ''}`}>
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -205,14 +208,21 @@ export default function Leads() {
                   <td className="px-4 py-3">
                     <button onClick={(e) => { e.stopPropagation(); openModal(lead); }}
                       className="px-3 py-1.5 rounded-lg border border-[#7C5CFC]/30 text-[#7C5CFC]
-                                 text-xs font-bold hover:bg-[#7C5CFC] hover:text-white transition-all">
+                                 text-xs font-bold hover:bg-[#7C5CFC] hover:text-white transition-all whitespace-nowrap">
                       Contact →
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={(e) => { e.stopPropagation(); handleRemove(lead); }}
-                      className="text-white/20 hover:text-red-400 w-7 h-7 rounded-full hover:bg-red-500/10 flex items-center justify-center transition-all text-lg font-bold"
-                      title="Remove">×</button>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if(window.confirm(`Move ${lead.business_name || lead.name} back to Hunt Pool?`)) {
+                           handleRemove(lead); 
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all text-xl font-bold"
+                      title="Remove from Campaign">
+                      ×
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -226,15 +236,16 @@ export default function Leads() {
           onClick={e => e.target === e.currentTarget && setSelected(null)}>
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0D0B1E] border border-white/10 rounded-2xl shadow-2xl">
 
-            <div className="flex items-start justify-between p-6 border-b border-white/10 sticky top-0 bg-[#0D0B1E] z-10">
+            {/* Fixed Modal Header */}
+            <div className="flex items-start justify-between p-6 border-b border-white/10 sticky top-0 bg-[#0D0B1E] z-10 rounded-t-2xl">
               <div>
-                <h2 className="text-xl font-bold text-white">{selected.business_name || selected.name}</h2>
-                <div className="mt-1"><StatusBadge status={selected.status} /></div>
+                <h2 className="text-xl font-bold text-white pr-4">{selected.business_name || selected.name}</h2>
+                <div className="mt-2"><StatusBadge status={selected.status} /></div>
               </div>
-              <button onClick={() => setSelected(null)} className="text-white/40 hover:text-white text-2xl leading-none">×</button>
+              <button onClick={() => setSelected(null)} className="text-white/40 hover:text-white hover:bg-white/10 w-8 h-8 rounded-full flex items-center justify-center text-2xl transition-colors">×</button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: "Phone",   value: selected.phone   },

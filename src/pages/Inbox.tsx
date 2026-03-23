@@ -109,23 +109,39 @@ export default function Inbox() {
     setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 200);
   };
 
-  const handleSend = async (lead: Lead) => {
-    const text = draftMap[lead.id]?.trim();
-    if (!text) return;
+  const handleSend = async (lead: Lead, channel: string) => {
+    const draft = draftMap[lead.id];
+    if (!draft || !draft.trim()) return;
+    
     setSending(lead.id);
+
     try {
-      const r = await fetch(`${API}/api/send-reply/${lead.id}`, {
+      await fetch(`${API}/api/send-reply/${lead.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reply_text: text }),
+        body: JSON.stringify({ 
+          reply_text: draft,
+          channel: channel // This tells the backend "email" or "whatsapp"
+        })
       });
-      if (r.ok) {
-        setSentIds(p => new Set([...p, lead.id]));
+
+      setSentIds(p => new Set([...p, lead.id]));
+      
+      // Sync the status back to localStorage
+      const my: Lead[] = JSON.parse(localStorage.getItem("dealos_my_leads") || "[]");
+      const updated = my.map((l: any) => l.id === lead.id ? { ...l, status: "sent" } : l);
+      localStorage.setItem("dealos_my_leads", JSON.stringify(updated));
+      
+      // Reload the conversation so your new sent bubble appears instantly
+      setTimeout(() => loadConversation(lead.id), 1000);
+      
+      setTimeout(() => {
+        setSentIds(p => { const n = new Set(p); n.delete(lead.id); return n; });
         setDraftMap(p => ({ ...p, [lead.id]: "" }));
-        setTimeout(() => setSentIds(p => { const n = new Set(p); n.delete(lead.id); return n; }), 3000);
-        await loadConversation(lead.id);
-      }
-    } catch {}
+      }, 3000);
+    } catch (e) {
+      console.error("Failed to send reply", e);
+    }
     setSending(null);
   };
 
@@ -144,10 +160,11 @@ export default function Inbox() {
       await fetchLeads();
       const openId = expandedRef.current;
       if (openId) {
+        // Always refresh the open conversation so new replies appear in real-time
         await loadConversation(openId);
         setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       }
-    }, 4000);
+    }, 5000);
     return () => clearInterval(pollRef.current);
   }, [fetchLeads, loadConversation]);
 
@@ -333,17 +350,33 @@ export default function Inbox() {
                                 className={`text-xs transition-colors ${lead.status === "closed" ? "text-green-500 font-medium" : "text-zinc-400 hover:text-green-500"}`}>
                                 {lead.status === "closed" ? "✅ Deal Closed" : "✅ Mark as Closed Deal"}
                               </button>
-                              <div className="flex gap-3">
+                              <div className="flex flex-wrap gap-2">
                                 <button onClick={() => setDraftMap(p => ({ ...p, [lead.id]: reply.draft_reply || "" }))}
-                                  className="px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
+                                  className="px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
                                   Edit
                                 </button>
-                                <button onClick={() => handleSend(lead)}
-                                  disabled={sending === lead.id || isSent || lead.status === "closed" || !draft.trim()}
-                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 shadow-sm">
-                                  <Send className="w-3.5 h-3.5" />
-                                  {sending === lead.id ? "Sending..." : isSent ? "✅ Sent!" : "Send Reply"}
-                                </button>
+                                
+                                {/* PURPLE BUTTON FOR EMAIL */}
+                                {lead.email && (
+                                  <button 
+                                    onClick={() => handleSend(lead, "email")}
+                                    disabled={sending === lead.id || isSent}
+                                    className="px-3 py-2 bg-[#7C5CFC] text-white rounded-lg text-sm font-medium hover:bg-[#6B4EE8] disabled:opacity-50 transition-colors flex items-center gap-2">
+                                    <Send className="w-3.5 h-3.5" />
+                                    {sending === lead.id ? "..." : "Send via Email"}
+                                  </button>
+                                )}
+
+                                {/* GREEN BUTTON FOR WHATSAPP */}
+                                {lead.phone && (
+                                  <button 
+                                    onClick={() => handleSend(lead, "whatsapp")}
+                                    disabled={sending === lead.id || isSent}
+                                    className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                                    <Send className="w-3.5 h-3.5" />
+                                    {sending === lead.id ? "..." : "Send via WA"}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}

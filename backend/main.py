@@ -390,7 +390,11 @@ class ManualLeadReq(BaseModel):
 @app.post("/api/manual-lead")
 def add_manual_lead(req: ManualLeadReq):
     try:
-        log_activity("Adding manual lead...")
+        log_activity(f"Processing manual lead: {req.business_name}")
+        
+        # 1. Check if a lead with this phone already exists in this campaign
+        existing = supabase.table("leads").select("id").eq("phone", req.phone).eq("campaign_id", req.campaign_id).execute()
+        
         lead_data = {
             "campaign_id": req.campaign_id,
             "name": req.business_name,
@@ -401,28 +405,34 @@ def add_manual_lead(req: ManualLeadReq):
             "source": "Manual",
             "status": "pending"
         }
-        res = supabase.table("leads").insert(lead_data).execute()
-        if not res.data:
-            raise HTTPException(status_code=500, detail="Failed to add lead")
+
+        if existing.data:
+            # UPDATE existing instead of inserting new
+            lead_id = existing.data[0]["id"]
+            res = supabase.table("leads").update(lead_data).eq("id", lead_id).execute()
+            log_activity(f"Existing lead updated: {lead_id}")
+        else:
+            # Truly new lead
+            res = supabase.table("leads").insert(lead_data).execute()
+            lead_id = res.data[0]["id"]
+            log_activity(f"New lead created: {lead_id}")
+
         lead = res.data[0]
         
+        # 2. Re-calculate score
         camp_res = supabase.table("campaigns").select("*").eq("id", req.campaign_id).execute()
-        if not camp_res.data:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        campaign = camp_res.data[0]
-        
-        score_res = score_lead(lead, campaign)
-        supabase.table("leads").update({
-            "score": score_res.get("score"),
-            "score_reason": score_res.get("reason")
-        }).eq("id", lead["id"]).execute()
-        
-        lead["score"] = score_res.get("score")
-        lead["score_reason"] = score_res.get("reason")
+        if camp_res.data:
+            score_res = score_lead(lead, camp_res.data[0])
+            supabase.table("leads").update({
+                "score": score_res.get("score"),
+                "score_reason": score_res.get("reason")
+            }).eq("id", lead_id).execute()
+            lead["score"] = score_res.get("score")
+            lead["score_reason"] = score_res.get("reason")
         
         return lead
     except Exception as e:
-        log_activity(f"Error adding manual lead: {str(e)}")
+        log_activity(f"Error in manual lead upsert: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/import-csv")
@@ -462,18 +472,33 @@ async def import_csv(campaign_id: str = Form(...), file: UploadFile = File(...))
         email_col = cols.get("email")
 
         for _, row in df.iterrows():
+            phone_val = str(row[phone_col]).strip() if phone_col and not pd.isna(row[phone_col]) else ""
             lead_data = {
                 "campaign_id":  campaign_id,
                 "name":         str(row[name_col]).strip() if name_col else "Unknown",
                 "business_name": str(row[name_col]).strip() if name_col else "Unknown",
                 "city":         str(row[city_col]).strip() if city_col else "Unknown",
-                "phone":        str(row[phone_col]).strip() if phone_col and not pd.isna(row[phone_col]) else "",
+                "phone":        phone_val,
                 "email":        str(row[email_col]).strip() if email_col and not pd.isna(row[email_col]) else "",
                 "source":       "CSV Import",
                 "status":       "new",
                 "score":        0
             }
-            res = supabase.table("leads").insert(lead_data).execute()
+
+            # Upsert: check if lead with this phone already exists in campaign
+            if phone_val:
+                existing = supabase.table("leads").select("id").eq("phone", phone_val).eq("campaign_id", campaign_id).execute()
+            else:
+                existing = type('obj', (object,), {'data': []})()  # no phone → always insert
+
+            if existing.data:
+                lead_id = existing.data[0]["id"]
+                res = supabase.table("leads").update(lead_data).eq("id", lead_id).execute()
+                log_activity(f"CSV upsert — updated existing lead: {lead_id}")
+            else:
+                res = supabase.table("leads").insert(lead_data).execute()
+                log_activity(f"CSV upsert — new lead created")
+
             if res.data:
                 imported_leads.append(res.data[0])
 
@@ -516,6 +541,11 @@ def send_email_only(lead_id: str):
         usr = os.environ.get("GMAIL_USER")
         
         res = send_email(email_addr, email_subject, email_text, usr, pwd)
+
+        from datetime import datetime
+        supabase.table("messages").update({
+            "sent_at": datetime.utcnow().isoformat()
+        }).eq("id", msg["id"]).execute()
 
         supabase.table("leads").update({"status": "sent"}).eq("id", lead_id).execute()
         log_activity(f"Email sent to {lead.get('business_name')}")
@@ -602,6 +632,24 @@ def check_email_replies():
             lead_email = lead.get("email", "").strip()
             if not lead_email:
                 continue
+
+            # --- 30-MINUTE TIMEOUT LOGIC ---
+            from datetime import datetime, timezone, timedelta
+            msg_res = supabase.table("messages").select("sent_at").eq("lead_id", lead["id"]).execute()
+            if msg_res.data and msg_res.data[-1].get("sent_at"):
+                sent_time_str = msg_res.data[-1]["sent_at"]
+                if sent_time_str.endswith('Z'):
+                    sent_time_str = sent_time_str[:-1] + '+00:00'
+                try:
+                    sent_time = datetime.fromisoformat(sent_time_str)
+                    # If older than 30 minutes, mark as overtime and STOP checking
+                    if datetime.now(timezone.utc) - sent_time > timedelta(minutes=30):
+                        supabase.table("leads").update({"status": "overtime"}).eq("id", lead["id"]).execute()
+                        log_activity(f"Lead {lead.get('business_name')} moved to overtime (30m expired)")
+                        continue # Skip IMAP search entirely for this lead
+                except Exception as e:
+                    print(f"Time parsing error for {lead['id']}: {e}")
+            # ------------------------------
 
             try:
                 # Search for UNSEEN emails FROM this specific lead
@@ -777,58 +825,55 @@ async def whatsapp_webhook(request: Request):
 @app.get("/api/conversation/{lead_id}")
 def get_conversation(lead_id: str):
     try:
-        replies_res = supabase.table("replies").select("*")\
-            .eq("lead_id", lead_id)\
-            .execute()
+        # Fetch everything for this lead
+        replies_res = supabase.table("replies").select("*").eq("lead_id", lead_id).execute()
+        messages_res = supabase.table("messages").select("*").eq("lead_id", lead_id).execute()
         
-        messages_res = supabase.table("messages").select("*")\
-            .eq("lead_id", lead_id)\
-            .execute()
+        raw_messages = messages_res.data or []
+        raw_replies = replies_res.data or []
         
-        # Build interleaved conversation
-        # Pattern: sent → received → sent → received...
-        conversation = []
+        combined = []
         
-        messages = messages_res.data or []
-        replies  = replies_res.data  or []
-        
-        # Interleave: first message, first reply, second message, second reply...
-        max_len = max(len(messages), len(replies))
-        for i in range(max_len):
-            if i < len(messages):
-                m = messages[i]
-                conversation.append({
+        # Add sent messages
+        for m in raw_messages:
+            created = m.get("created_at") or m.get("sent_at")
+            if m.get("email_body"):
+                combined.append({
                     "type": "sent",
-                    "text": m.get("whatsapp_msg") or m.get("email_body") or "",
-                    "channel": "whatsapp" if m.get("whatsapp_msg") else "email",
-                    "subject": m.get("email_subject", ""),
-                    "seq": i * 2
+                    "text": f"Subject: {m.get('email_subject', '')}\n\n{m.get('email_body', '')}",
+                    "channel": "email",
+                    "time": created
                 })
-            if i < len(replies):
-                r = replies[i]
-                conversation.append({
-                    "type": "received",
-                    "text": r.get("reply_text", ""),
-                    "sentiment": r.get("sentiment", ""),
-                    "interest_score": r.get("interest_score", 0),
-                    "confidence": r.get("confidence", 0),
-                    "strategy": r.get("strategy", ""),
-                    "draft_reply": r.get("draft_reply", ""),
-                    "seq": i * 2 + 1
+            if m.get("whatsapp_msg"):
+                combined.append({
+                    "type": "sent",
+                    "text": m.get("whatsapp_msg"),
+                    "channel": "whatsapp",
+                    "time": created
                 })
-        
-        # Latest reply for draft
-        latest_reply = replies[-1] if replies else None
+                
+        # Add received replies
+        for r in raw_replies:
+            combined.append({
+                "type": "received",
+                "text": r.get("reply_text", ""),
+                "sentiment": r.get("sentiment", ""),
+                "interest_score": r.get("interest_score", 0),
+                "strategy": r.get("strategy", ""),
+                "draft_reply": r.get("draft_reply", ""),
+                "time": r.get("created_at") or r.get("replied_at")
+            })
+            
+        # Sort everything strictly by time
+        combined.sort(key=lambda x: x.get("time") or "")
         
         return {
-            "conversation": conversation,
-            "latest_reply": latest_reply,
-            "replies": replies,
-            "messages": messages
+            "conversation": combined,
+            "latest_reply": raw_replies[-1] if raw_replies else None
         }
     except Exception as e:
         print(f"Conversation error: {e}")
-        return {"conversation": [], "latest_reply": None, "replies": [], "messages": []}
+        return {"conversation": [], "latest_reply": None}
 
 @app.get("/api/replies/{lead_id}")
 def get_lead_replies(lead_id: str):
@@ -854,19 +899,70 @@ def send_reply(lead_id: str, body: dict):
         if not reply_text:
             raise HTTPException(status_code=400, detail="No reply text")
 
-        sid   = os.environ.get("TWILIO_ACCOUNT_SID")
-        token = os.environ.get("TWILIO_AUTH_TOKEN")
+        # Get channel from frontend, default to whatsapp
+        channel = body.get("channel", "whatsapp")
+        
+        from datetime import datetime
+        now_iso = datetime.utcnow().isoformat()
+        
+        result = None
+        if channel == "email" and lead.get("email"):
+            from services.gmail_service import send_email
+            pwd = os.environ.get("GMAIL_PASSWORD")
+            usr = os.environ.get("GMAIL_USER")
+            
+            # Find the previous email subject to keep the thread going cleanly
+            msg_res = supabase.table("messages").select("email_subject").eq("lead_id", lead_id).execute()
+            subject = "Re: Following up"
+            if msg_res.data:
+                for m in reversed(msg_res.data):
+                    if m.get("email_subject"):
+                        subject = m["email_subject"]
+                        if not subject.startswith("Re:"):
+                            subject = f"Re: {subject}"
+                        break
 
-        from services.whatsapp_service import send_whatsapp
-        result = send_whatsapp(lead.get("phone", ""), reply_text, sid, token)
+            # Send via Gmail
+            result = send_email(lead["email"], subject, reply_text, usr, pwd)
+            
+            # Save to messages table so it appears in the Inbox history
+            supabase.table("messages").insert({
+                "lead_id": lead_id,
+                "email_subject": subject,
+                "email_body": reply_text,
+                "whatsapp_msg": None,
+                "approval_status": "approved",
+                "sent_at": now_iso
+            }).execute()
+            
+        else:
+            sid   = os.environ.get("TWILIO_ACCOUNT_SID")
+            token = os.environ.get("TWILIO_AUTH_TOKEN")
+            from services.whatsapp_service import send_whatsapp
+            
+            # Send via Twilio
+            result = send_whatsapp(lead.get("phone", ""), reply_text, sid, token)
+            
+            # Save to messages table so it appears in the Inbox history
+            supabase.table("messages").insert({
+                "lead_id": lead_id,
+                "email_subject": None,
+                "email_body": None,
+                "whatsapp_msg": reply_text,
+                "approval_status": "approved",
+                "sent_at": now_iso
+            }).execute()
 
+        # Kick the lead back to 'sent' status waiting for their next reply
         supabase.table("leads").update({"status": "sent"}).eq("id", lead_id).execute()
-        log_activity(f"Counter-reply sent to {lead.get('business_name')}")
+        log_activity(f"Counter-reply sent to {lead.get('business_name')} via {channel}")
 
         return {"success": True, "result": result}
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
