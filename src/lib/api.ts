@@ -17,6 +17,12 @@ async function post(path: string, body?: unknown) {
   return res.json();
 }
 
+async function del(path: string) {
+  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+  return res.json();
+}
+
 // ── API ───────────────────────────────────────────────────
 export const api = {
 
@@ -63,6 +69,9 @@ export const api = {
 
   getDeals: (campaignId: string) =>
     get(`/api/deals/${campaignId}`),
+
+  deleteCampaign: (campaignId: string) =>
+    del(`/api/campaigns/${campaignId}`),
 };
 
 // ── Types ─────────────────────────────────────────────────

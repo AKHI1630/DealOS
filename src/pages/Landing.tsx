@@ -1,173 +1,138 @@
-import { motion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, Bot, Zap, Target, Mail, BarChart3, MessageSquare, Play, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, Bot, Target, Search, Mail, BarChart3, MessageSquare } from 'lucide-react';
 
 export default function Landing() {
-  const { scrollYProgress } = useScroll();
-  const y = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const agents = [
+    {
+      icon: <Bot className="w-6 h-6 text-indigo-400" />,
+      title: "Orchestrator",
+      description: "Plans the pipeline and delegates tasks based on your business config."
+    },
+    {
+      icon: <Target className="w-6 h-6 text-indigo-400" />,
+      title: "Lead Hunter",
+      description: "Scours the web, LinkedIn, and directories to find your ideal ICP."
+    },
+    {
+      icon: <Search className="w-6 h-6 text-indigo-400" />,
+      title: "Research Agent",
+      description: "Visits lead websites to extract pain points and context."
+    },
+    {
+      icon: <Mail className="w-6 h-6 text-indigo-400" />,
+      title: "Email Writer",
+      description: "Drafts hyper-personalized emails using context and product info."
+    },
+    {
+      icon: <BarChart3 className="w-6 h-6 text-indigo-400" />,
+      title: "Scoring Agent",
+      description: "Scores leads 0-100 based on purchase intent and fit."
+    },
+    {
+      icon: <MessageSquare className="w-6 h-6 text-indigo-400" />,
+      title: "Negotiator",
+      description: "Reads replies, detects sentiment, and handles objections."
+    }
+  ];
 
   return (
-    <div className="relative">
-      {/* Scroll Progress */}
-      <motion.div 
-        className="fixed top-0 left-0 right-0 h-1 bg-indigo-500 origin-left z-50"
-        style={{ scaleX: scrollYProgress }}
-      />
-
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(79,70,229,0.15),transparent_50%)]" />
+    <div className="bg-[#09090b] min-h-screen w-full font-sans selection:bg-indigo-500/30">
+      {/* HERO SECTION */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20 pb-16">
         
-        <div className="container mx-auto px-6 relative z-10 text-center max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+        {/* Glow Effects (Subtle behind the text) */}
+        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none" />
+        <div className="absolute top-[50%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+        {/* Main Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center text-center px-6 max-w-5xl mx-auto">
+          
+          {/* DealOS Badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-indigo-300 mb-8"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-700/50 bg-[#18181b]/80 backdrop-blur-sm mb-10"
           >
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-            </span>
-            DealOS 2.0 is live
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span className="text-xs text-zinc-300 font-medium">DealOS 2.0 is live</span>
           </motion.div>
-          
+
+          {/* Hero Headline */}
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-6xl md:text-8xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-[3.5rem] md:text-[5rem] lg:text-[6.5rem] font-bold tracking-tight text-white mb-6 leading-[1.05]"
           >
-            Your AI Sales Team. <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-              Working 24/7.
-            </span>
+            Your AI Sales Team.<br />
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-indigo-400 to-purple-400">Working 24/7.</span>
           </motion.h1>
-          
+
+          {/* Subheading */}
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed"
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed"
           >
             An autonomous multi-agent system that finds leads, researches prospects, writes hyper-personalized emails, and negotiates deals. While you sleep.
           </motion.p>
-          
+
+          {/* Call to Actions */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col sm:flex-row items-center gap-4"
           >
             <Link 
               to="/config" 
-              className="h-12 px-8 rounded-full bg-white text-black font-medium flex items-center gap-2 hover:bg-zinc-200 transition-colors"
+              className="group flex items-center justify-center gap-2 bg-white text-zinc-950 px-8 py-3.5 rounded-full font-semibold hover:bg-zinc-100 transition-colors w-full sm:w-auto"
             >
-              Get Started Free <ArrowRight className="w-4 h-4" />
+              Get Started Free
+              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <button className="h-12 px-8 rounded-full bg-white/5 text-white font-medium flex items-center gap-2 hover:bg-white/10 transition-colors border border-white/10">
-              <Play className="w-4 h-4" /> Watch Demo
-            </button>
           </motion.div>
+          
         </div>
-
-        {/* Floating Elements */}
-        <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-        </motion.div>
       </section>
 
-      {/* How it works */}
-      <section id="how-it-works" className="py-32 relative border-t border-white/5">
-        <div className="container mx-auto px-6 max-w-6xl">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">6 Agents. 1 Goal.</h2>
+      {/* FEATURES SECTION */}
+      <section id="how-it-works" className="relative z-10 py-24 bg-[#09090b]">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">6 Agents. 1 Goal.</h2>
             <p className="text-zinc-400 text-lg">How the autonomous pipeline works end-to-end.</p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon: Bot, title: "Orchestrator", desc: "Plans the pipeline and delegates tasks based on your business config." },
-              { icon: Target, title: "Lead Hunter", desc: "Scours the web, LinkedIn, and directories to find your ideal ICP." },
-              { icon: Search, title: "Research Agent", desc: "Visits lead websites to extract pain points and context." },
-              { icon: Mail, title: "Email Writer", desc: "Drafts hyper-personalized emails using context and product info." },
-              { icon: BarChart3, title: "Scoring Agent", desc: "Scores leads 0-100 based on purchase intent and fit." },
-              { icon: MessageSquare, title: "Negotiator", desc: "Reads replies, detects sentiment, and handles objections." }
-            ].map((agent, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {agents.map((agent, index) => (
               <motion.div
-                key={i}
+                key={index}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-[#121214] border border-white/5 rounded-2xl p-8 hover:bg-[#18181b] transition-colors shadow-lg"
               >
-                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4">
-                  <agent.icon className="w-6 h-6 text-indigo-400" />
+                <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-6">
+                  {agent.icon}
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{agent.title}</h3>
-                <p className="text-zinc-400 leading-relaxed">{agent.desc}</p>
+                <h3 className="text-xl font-semibold text-white mb-3 tracking-tight">{agent.title}</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  {agent.description}
+                </p>
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Live Demo Simulation */}
-      <section className="py-32 relative bg-zinc-900/50 border-t border-white/5">
-        <div className="container mx-auto px-6 max-w-4xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">See it in action</h2>
-            <p className="text-zinc-400 text-lg">A glimpse into the agent terminal.</p>
-          </div>
-          
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="rounded-2xl bg-black border border-white/10 overflow-hidden shadow-2xl"
-          >
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="w-3 h-3 rounded-full bg-amber-500" />
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span className="ml-2 text-xs text-zinc-500 font-mono">dealos-terminal ~ /sales</span>
-            </div>
-            <div className="p-6 font-mono text-sm space-y-4 text-zinc-300 h-80 overflow-y-auto">
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-                <span className="text-indigo-400">➜</span> <span className="text-emerald-400">Lead Hunter</span> initialized. Searching for "B2B SaaS in London"...
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1.5 }}>
-                <span className="text-indigo-400">➜</span> Found 124 leads. Passing to <span className="text-purple-400">Research Agent</span>...
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 2.5 }}>
-                <span className="text-indigo-400">➜</span> Scraping websites... Extracted 124 pain points.
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 3.5 }}>
-                <span className="text-indigo-400">➜</span> <span className="text-amber-400">Email Writer</span> drafting personalized copy...
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 4.5 }}>
-                <span className="text-indigo-400">➜</span> <span className="text-blue-400">Scoring Agent</span>: 12 leads scored &gt; 80 (Hot).
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 5.5 }}>
-                <span className="text-indigo-400">➜</span> Awaiting human approval to send.
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-32 relative">
-        <div className="container mx-auto px-6 max-w-4xl text-center">
-          <h2 className="text-5xl font-bold tracking-tight mb-8">Ready to automate your sales?</h2>
-          <Link 
-            to="/config" 
-            className="inline-flex h-14 items-center justify-center px-8 rounded-full bg-indigo-500 text-white font-medium text-lg hover:bg-indigo-600 transition-colors shadow-[0_0_40px_rgba(99,102,241,0.4)]"
-          >
-            Start for free today
-          </Link>
         </div>
       </section>
     </div>

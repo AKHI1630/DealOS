@@ -1,0 +1,189 @@
+﻿commit 2f53f2246bdcd111ef6bf2a63124a39a606ab00e
+Author: AKHI1630 <smallidi@student.gitam.edu>
+Date:   Fri Mar 20 12:35:47 2026 +0530
+
+    feat: Initialize DealOS project structure
+    
+    Sets up the project with initial configuration files, dependencies, and a basic React application structure. Includes essential files like `.env.example`, `.gitignore`, `index.html`, `metadata.json`, `package.json`, `tsconfig.json`, `vite.config.ts`, and basic CSS and React component files.
+
+diff --git a/src/pages/Landing.tsx b/src/pages/Landing.tsx
+new file mode 100644
+index 0000000..f19d56f
+--- /dev/null
++++ b/src/pages/Landing.tsx
+@@ -0,0 +1,175 @@
++import { motion, useScroll, useTransform } from 'motion/react';
++import { ArrowRight, Bot, Zap, Target, Mail, BarChart3, MessageSquare, Play, Search } from 'lucide-react';
++import { Link } from 'react-router-dom';
++
++export default function Landing() {
++  const { scrollYProgress } = useScroll();
++  const y = useTransform(scrollYProgress, [0, 1], [0, 200]);
++
++  return (
++    <div className="relative">
++      {/* Scroll Progress */}
++      <motion.div 
++        className="fixed top-0 left-0 right-0 h-1 bg-indigo-500 origin-left z-50"
++        style={{ scaleX: scrollYProgress }}
++      />
++
++      {/* Hero Section */}
++      <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
++        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(79,70,229,0.15),transparent_50%)]" />
++        
++        <div className="container mx-auto px-6 relative z-10 text-center max-w-4xl">
++          <motion.div
++            initial={{ opacity: 0, y: 20 }}
++            animate={{ opacity: 1, y: 0 }}
++            transition={{ duration: 0.5 }}
++            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-indigo-300 mb-8"
++          >
++            <span className="flex h-2 w-2 relative">
++              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
++              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
++            </span>
++            DealOS 2.0 is live
++          </motion.div>
++          
++          <motion.h1 
++            initial={{ opacity: 0, y: 20 }}
++            animate={{ opacity: 1, y: 0 }}
++            transition={{ duration: 0.5, delay: 0.1 }}
++            className="text-6xl md:text-8xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50"
++          >
++            Your AI Sales Team. <br/>
++            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
++              Working 24/7.
++            </span>
++          </motion.h1>
++          
++          <motion.p 
++            initial={{ opacity: 0, y: 20 }}
++            animate={{ opacity: 1, y: 0 }}
++            transition={{ duration: 0.5, delay: 0.2 }}
++            className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed"
++          >
++            An autonomous multi-agent system that finds leads, researches prospects, writes hyper-personalized emails, and negotiates deals. While you sleep.
++          </motion.p>
++          
++          <motion.div 
++            initial={{ opacity: 0, y: 20 }}
++            animate={{ opacity: 1, y: 0 }}
++            transition={{ duration: 0.5, delay: 0.3 }}
++            className="flex flex-col sm:flex-row items-center justify-center gap-4"
++          >
++            <Link 
++              to="/config" 
++              className="h-12 px-8 rounded-full bg-white text-black font-medium flex items-center gap-2 hover:bg-zinc-200 transition-colors"
++            >
++              Get Started Free <ArrowRight className="w-4 h-4" />
++            </Link>
++            <button className="h-12 px-8 rounded-full bg-white/5 text-white font-medium flex items-center gap-2 hover:bg-white/10 transition-colors border border-white/10">
++              <Play className="w-4 h-4" /> Watch Demo
++            </button>
++          </motion.div>
++        </div>
++
++        {/* Floating Elements */}
++        <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
++          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl" />
++          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
++        </motion.div>
++      </section>
++
++      {/* How it works */}
++      <section id="how-it-works" className="py-32 relative border-t border-white/5">
++        <div className="container mx-auto px-6 max-w-6xl">
++          <div className="text-center mb-20">
++            <h2 className="text-4xl font-bold tracking-tight mb-4">6 Agents. 1 Goal.</h2>
++            <p className="text-zinc-400 text-lg">How the autonomous pipeline works end-to-end.</p>
++          </div>
++
++          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
++            {[
++              { icon: Bot, title: "Orchestrator", desc: "Plans the pipeline and delegates tasks based on your business config." },
++              { icon: Target, title: "Lead Hunter", desc: "Scours the web, LinkedIn, and directories to find your ideal ICP." },
++              { icon: Search, title: "Research Agent", desc: "Visits lead websites to extract pain points and context." },
++              { icon: Mail, title: "Email Writer", desc: "Drafts hyper-personalized emails using context and product info." },
++              { icon: BarChart3, title: "Scoring Agent", desc: "Scores leads 0-100 based on purchase intent and fit." },
++              { icon: MessageSquare, title: "Negotiator", desc: "Reads replies, detects sentiment, and handles objections." }
++            ].map((agent, i) => (
++              <motion.div
++                key={i}
++                initial={{ opacity: 0, y: 20 }}
++                whileInView={{ opacity: 1, y: 0 }}
++                viewport={{ once: true }}
++                transition={{ delay: i * 0.1 }}
++                className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
++              >
++                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4">
++                  <agent.icon className="w-6 h-6 text-indigo-400" />
++                </div>
++                <h3 className="text-xl font-semibold mb-2">{agent.title}</h3>
++                <p className="text-zinc-400 leading-relaxed">{agent.desc}</p>
++              </motion.div>
++            ))}
++          </div>
++        </div>
++      </section>
++
++      {/* Live Demo Simulation */}
++      <section className="py-32 relative bg-zinc-900/50 border-t border-white/5">
++        <div className="container mx-auto px-6 max-w-4xl">
++          <div className="text-center mb-16">
++            <h2 className="text-4xl font-bold tracking-tight mb-4">See it in action</h2>
++            <p className="text-zinc-400 text-lg">A glimpse into the agent terminal.</p>
++          </div>
++          
++          <motion.div 
++            initial={{ opacity: 0, scale: 0.95 }}
++            whileInView={{ opacity: 1, scale: 1 }}
++            viewport={{ once: true }}
++            className="rounded-2xl bg-black border border-white/10 overflow-hidden shadow-2xl"
++          >
++            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
++              <div className="w-3 h-3 rounded-full bg-red-500" />
++              <div className="w-3 h-3 rounded-full bg-amber-500" />
++              <div className="w-3 h-3 rounded-full bg-emerald-500" />
++              <span className="ml-2 text-xs text-zinc-500 font-mono">dealos-terminal ~ /sales</span>
++            </div>
++            <div className="p-6 font-mono text-sm space-y-4 text-zinc-300 h-80 overflow-y-auto">
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> <span className="text-emerald-400">Lead Hunter</span> initialized. Searching for "B2B SaaS in London"...
++              </motion.div>
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> Found 124 leads. Passing to <span className="text-purple-400">Research Agent</span>...
++              </motion.div>
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 2.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> Scraping websites... Extracted 124 pain points.
++              </motion.div>
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 3.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> <span className="text-amber-400">Email Writer</span> drafting personalized copy...
++              </motion.div>
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 4.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> <span className="text-blue-400">Scoring Agent</span>: 12 leads scored &gt; 80 (Hot).
++              </motion.div>
++              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 5.5 }}>
++                <span className="text-indigo-400">Γ₧£</span> Awaiting human approval to send.
++              </motion.div>
++            </div>
++          </motion.div>
++        </div>
++      </section>
++
++      {/* CTA */}
++      <section className="py-32 relative">
++        <div className="container mx-auto px-6 max-w-4xl text-center">
++          <h2 className="text-5xl font-bold tracking-tight mb-8">Ready to automate your sales?</h2>
++          <Link 
++            to="/config" 
++            className="inline-flex h-14 items-center justify-center px-8 rounded-full bg-indigo-500 text-white font-medium text-lg hover:bg-indigo-600 transition-colors shadow-[0_0_40px_rgba(99,102,241,0.4)]"
++          >
++            Start for free today
++          </Link>
++        </div>
++      </section>
++    </div>
++  );
++}

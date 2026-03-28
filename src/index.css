@@ -15,12 +15,12 @@
 
 @layer base {
   :root {
-    --app-bg: #F8F9FA;
-    --app-card: #FFFFFF;
-    --app-border: #E5E7EB;
-    --app-text: #111111;
-    --app-muted: #6B7280;
-    --app-accent: #4F46E5; /* Indigo 600 */
+    --app-bg: #fcfcfd;
+    --app-card: #ffffff;
+    --app-border: #e4e4e7;
+    --app-text: #09090b;
+    --app-muted: #71717a;
+    --app-accent: #4f46e5;
   }
   .dark {
     --app-bg: #05030F;
@@ -28,6 +28,10 @@
     --app-border: rgba(255,255,255,0.08);
     --app-text: #FFFFFF;
     --app-muted: #888888;
+  }
+  
+  .natural-shadow {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   }
   
   html {

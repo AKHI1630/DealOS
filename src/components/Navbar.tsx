@@ -1,25 +1,18 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
 import { Bot } from 'lucide-react';
 
 export default function Navbar() {
   return (
-    <motion.nav 
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-zinc-950/50 backdrop-blur-md border-b border-white/10"
-    >
-      <Link to="/" className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-        <Bot className="w-6 h-6 text-indigo-400" />
-        <span>Deal<span className="text-indigo-400">OS</span></span>
-      </Link>
-      <div className="flex items-center gap-6 text-sm font-medium">
-        <a href="#how-it-works" className="text-zinc-400 hover:text-white transition-colors">How it works</a>
-        <a href="#features" className="text-zinc-400 hover:text-white transition-colors">Features</a>
-        <Link to="/dashboard" className="px-4 py-2 bg-white text-black rounded-full hover:bg-zinc-200 transition-colors">
-          Dashboard
-        </Link>
+    <nav className="fixed top-0 left-0 right-0 z-50 w-full px-8 py-5 flex items-center justify-between border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md">
+      <div className="flex items-center gap-2">
+        <Bot className="w-6 h-6 text-indigo-500" />
+        <span className="text-[17px] font-semibold text-white tracking-wide">DealOS</span>
       </div>
-    </motion.nav>
+      <div className="flex items-center gap-8">
+         <a href="#how-it-works" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">How it works</a>
+         <a href="#features" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Features</a>
+         <Link to="/dashboard" className="text-sm font-semibold bg-white text-zinc-950 px-5 py-2.5 rounded-full hover:bg-zinc-200 transition-colors">Dashboard</Link>
+      </div>
+    </nav>
   );
 }

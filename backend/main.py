@@ -20,6 +20,7 @@ def log_activity(msg: str):
 
 from agents.writer import generate_messages
 from agents.scorer import score_lead
+from agents.quantum_scorer import compute_quantum_score
 from agents.negotiator import analyze_reply
 from services.gmail_service import send_email
 from services.whatsapp_service import send_whatsapp
@@ -197,6 +198,140 @@ def score_single_lead(lead_id: str):
         log_activity(f"Error scoring lead: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("/api/quantum-score/{lead_id}")
+def quantum_score_lead(lead_id: str):
+    """
+    Compute a quantum-enhanced score for a single lead.
+
+    1. Fetch lead row
+    2. Fetch all replies for this lead
+    3. Pass to quantum_scorer → get final score + badge
+    4. Update leads table with new score + score_reason
+    5. Return the result
+    """
+    try:
+        from agents.quantum_scorer import compute_quantum_score
+
+        # ── Fetch lead ────────────────────────────────────────────
+        lead_res = supabase.table("leads").select("*").eq("id", lead_id).execute()
+        if not lead_res.data:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        lead = lead_res.data[0]
+
+        # ── Fetch replies ─────────────────────────────────────────
+        replies_res = supabase.table("replies") \
+            .select("*") \
+            .eq("lead_id", lead_id) \
+            .order("replied_at", desc=True) \
+            .execute()
+        replies      = replies_res.data or []
+        latest_reply = replies[0] if replies else None
+        reply_count  = len(replies)
+
+        # ── Run quantum scorer ────────────────────────────────────
+        result = compute_quantum_score(
+            lead=lead,
+            latest_reply=latest_reply,
+            reply_count=reply_count,
+        )
+
+        # ── Persist back to Supabase ──────────────────────────────
+        supabase.table("leads").update({
+            "score":        result["score"],
+            "score_reason": result["reason"],
+        }).eq("id", lead_id).execute()
+
+        log_activity(
+            f"⚛ Quantum scored {lead.get('business_name', lead_id)}: "
+            f"{result['score']} ({result['badge']}) +{result['quantum_boost']:.1f} boost"
+        )
+
+        return {
+            "lead_id":       lead_id,
+            "score":         result["score"],
+            "badge":         result["badge"],
+            "sentiment":     result["sentiment"],
+            "quantum_boost": result["quantum_boost"],
+            "reason":        result["reason"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/quantum-score-all")
+def quantum_score_all_leads(body: dict = {}):
+    """
+    Score ALL leads in the current campaign at once.
+    Called when the Leads page loads or refreshes.
+    Returns list of {lead_id, score, badge} for the frontend to apply.
+    """
+    try:
+        from agents.quantum_scorer import compute_quantum_score
+
+        # Only score leads that have been interacted with
+        # Filter by campaign_id if provided
+        campaign_id = body.get("campaign_id")
+
+        query = supabase.table("leads").select("*")
+        
+        if campaign_id:
+            query = query.eq("campaign_id", campaign_id)
+        else:
+            # Only score leads with actual activity - not all 140 blank ones
+            query = query.in_("status", ["sent", "replied", "generated", "closed"])
+
+        leads_res = query.execute()
+        leads     = leads_res.data or []
+
+        if not leads:
+            return {"scored": 0, "results": []}
+
+        results = []
+        for lead in leads:
+            try:
+                replies_res = supabase.table("replies") \
+                    .select("*") \
+                    .eq("lead_id", lead["id"]) \
+                    .order("replied_at", desc=True) \
+                    .execute()
+                replies      = replies_res.data or []
+                latest_reply = replies[0] if replies else None
+                reply_count  = len(replies)
+
+                result = compute_quantum_score(
+                    lead=lead,
+                    latest_reply=latest_reply,
+                    reply_count=reply_count,
+                )
+
+                supabase.table("leads").update({
+                    "score":        result["score"],
+                    "score_reason": result["reason"],
+                }).eq("id", lead["id"]).execute()
+
+                results.append({
+                    "lead_id":       lead["id"],
+                    "score":         result["score"],
+                    "badge":         result["badge"],
+                    "sentiment":     result["sentiment"],
+                    "quantum_boost": result["quantum_boost"],
+                })
+            except Exception as e:
+                results.append({"lead_id": lead["id"], "error": str(e)})
+
+        log_activity(f"⚛ Quantum scored {len(results)} active leads")
+        return {"scored": len(results), "results": results}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/send/{lead_id}")
 def send_messages(lead_id: str):
     try:
@@ -337,6 +472,16 @@ def wipe_campaign_leads(campaign_id: str):
         supabase.table("leads").delete().eq("campaign_id", campaign_id).execute()
         return {"success": True}
     except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.delete("/api/campaigns/{campaign_id}")
+def delete_campaign(campaign_id: str):
+    try:
+        supabase.table("campaigns").delete().eq("id", campaign_id).execute()
+        return {"success": True}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 @app.get("/api/messages/{lead_id}")
@@ -754,7 +899,6 @@ async def whatsapp_webhook(request: Request):
             .select("*")\
             .eq("phone", from_number)\
             .in_("status", ["sent", "replied"])\
-            .limit(1)\
             .execute()
         
         if not lead_res.data:
@@ -763,14 +907,15 @@ async def whatsapp_webhook(request: Request):
                 .select("*")\
                 .ilike("phone", f"%{from_number[-10:]}")\
                 .in_("status", ["sent", "replied"])\
-                .limit(1)\
                 .execute()
         
         if not lead_res.data:
             log_activity(f"No lead found for {from_number}")
             return {"status": "lead not found"}
         
-        lead = lead_res.data[0]
+        # Sort leads by created_at and take the latest one
+        matching_leads = sorted(lead_res.data, key=lambda x: x.get("created_at", ""))
+        lead = matching_leads[-1]
         
         # Get campaign
         camp_res = supabase.table("campaigns")\

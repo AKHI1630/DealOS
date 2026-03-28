@@ -1,16 +1,16 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { LayoutDashboard, Users, Settings as SettingsIcon, Inbox, Bot, Zap, Plus, Lock, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, Users, Settings as SettingsIcon, Inbox, Bot, Zap, Plus, Lock, Moon, Sun, Trash2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useAppContext } from '../contexts/AppContext';
 import React, { useState } from 'react';
+import { api } from '../lib/api';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard',     href: '/dashboard', requiresConfig: true  },
   { icon: Inbox,           label: 'Inbox',         href: '/inbox',     requiresConfig: true  },
   { icon: Users,           label: 'Leads',         href: '/leads',     requiresConfig: true  },
   { icon: SettingsIcon,    label: 'Configuration', href: '/config',    requiresConfig: false },
-  { icon: SettingsIcon,    label: 'Settings',      href: '/settings',  requiresConfig: false },
 ];
 
 // ── localStorage helpers ──────────────────────────────────
@@ -45,7 +45,7 @@ export default function Sidebar({
     isConfigComplete,
     campaigns, currentCampaignId, setCurrentCampaignId,
     theme, setTheme,
-    settings,
+    settings, config, setCampaigns,
   } = useAppContext();
 
   const [showLockModal,        setShowLockModal]        = useState(false);
@@ -84,6 +84,24 @@ export default function Sidebar({
     }
   };
 
+  const handleDeleteCampaign = async (e: React.MouseEvent, campId: string) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this campaign permanently?")) return;
+    try {
+      await api.deleteCampaign(campId);
+      setCampaigns(campaigns.filter(c => c.id !== campId));
+      if (currentCampaignId === campId) {
+        setCurrentCampaignId(null);
+        localStorage.removeItem("dealos_campaign_id");
+        localStorage.removeItem("campaign_id");
+        navigate('/config');
+      }
+    } catch (err) {
+      console.error("Failed to delete campaign:", err);
+      alert("Failed to delete campaign.");
+    }
+  };
+
   return (
     <>
       <div className="w-64 border-r border-app-border bg-app-card flex flex-col h-full shrink-0">
@@ -115,29 +133,36 @@ export default function Sidebar({
               </div>
             ) : (
               campaigns.map(camp => (
-                <button
+                <div
                   key={camp.id}
                   onClick={() => handleCampaignSwitch(camp.id)}
                   className={cn(
-                    "w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors text-left group",
+                    "w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors text-left group cursor-pointer",
                     currentCampaignId === camp.id
                       ? "bg-app-bg text-app-text font-medium"
                       : "text-app-muted hover:bg-app-bg hover:text-app-text"
                   )}
                 >
                   <span className="truncate pr-2">{camp.name}</span>
-                  <span className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {camp.lead_count !== undefined && (
-                      <span className="text-[10px] font-bold bg-zinc-200 dark:bg-zinc-800
-                                       text-zinc-600 dark:text-zinc-400 px-1.5 py-0.5 rounded-md">
+                      <span className="text-[10px] font-bold bg-zinc-200 text-zinc-800 px-1.5 py-0.5 rounded-md">
                         {camp.lead_count}
                       </span>
                     )}
                     {camp.status === 'active'   && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
                     {camp.status === 'complete' && <span className="w-2 h-2 rounded-full bg-gray-500"    />}
                     {camp.status === 'paused'   && <span className="w-2 h-2 rounded-full bg-amber-500"   />}
-                  </span>
-                </button>
+
+                    <button
+                      onClick={(e) => handleDeleteCampaign(e, camp.id)}
+                      className="p-0.5 text-app-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1 z-10"
+                      title="Delete Campaign"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
               ))
             )}
           </div>
@@ -181,31 +206,13 @@ export default function Sidebar({
 
         {/* Bottom */}
         <div className="p-4 border-t border-app-border space-y-2">
-          <button
-            onClick={() => setIsDemoMode(!isDemoMode)}
-            className={cn(
-              "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors border",
-              isDemoMode
-                ? "bg-app-accent/10 border-app-accent/30 text-app-accent"
-                : "bg-transparent border-app-border text-app-muted hover:bg-app-bg hover:text-app-text"
-            )}
-          >
-            <span className="flex items-center gap-2">
-              <Zap className={cn("w-4 h-4", isDemoMode && "text-app-accent fill-app-accent")} />
-              Demo Mode
-            </span>
-            <div className={cn("w-8 h-4 rounded-full p-0.5 transition-colors", isDemoMode ? "bg-app-accent" : "bg-zinc-300 dark:bg-zinc-700")}>
-              <motion.div className="w-3 h-3 bg-white rounded-full shadow-sm" animate={{ x: isDemoMode ? 16 : 0 }} />
-            </div>
-          </button>
-
           <div className="flex items-center justify-between px-3 py-2">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-app-accent/20 flex items-center justify-center text-app-accent text-xs font-bold">
-                {settings.profile.name.charAt(0)}
+              <div className="w-6 h-6 rounded-full bg-app-accent/20 flex items-center justify-center text-app-accent text-xs font-bold uppercase">
+                {(config?.owner_name || "U").charAt(0)}
               </div>
               <span className="text-sm font-medium text-app-text truncate max-w-[100px]">
-                {settings.profile.name}
+                {config?.owner_name || "User"}
               </span>
             </div>
             <button

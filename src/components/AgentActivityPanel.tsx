@@ -31,8 +31,8 @@ export default function AgentActivityPanel() {
   }, [agentLogs]);
 
   return (
-    <div className="w-80 border-l border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950 flex flex-col h-full shrink-0">
-      <div className="p-4 border-b border-zinc-200 dark:border-white/10 flex items-center gap-2">
+    <div className="w-80 border-l border-zinc-200 bg-white natural-shadow flex flex-col h-full shrink-0">
+      <div className="p-4 border-b border-zinc-200 flex items-center gap-2">
         <Activity className="w-4 h-4 text-indigo-500" />
         <h3 className="text-sm font-semibold">Live Agent Activity</h3>
         <span className="ml-auto flex h-2 w-2 relative">
@@ -50,7 +50,7 @@ export default function AgentActivityPanel() {
               className="flex gap-3 items-start"
             >
               <Terminal className="w-4 h-4 shrink-0 mt-0.5 text-zinc-500" />
-              <span className="text-zinc-600 dark:text-zinc-400 leading-relaxed break-words whitespace-pre-wrap">
+              <span className="text-zinc-900 font-medium leading-relaxed break-words whitespace-pre-wrap">
                 {text}
               </span>
             </motion.div>
